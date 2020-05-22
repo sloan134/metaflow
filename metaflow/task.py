@@ -356,7 +356,14 @@ class MetaflowTask(object):
 
                 # Ensure that we have the right number of inputs. The
                 # foreach case is checked above.
-                if join_type != 'foreach' and\
+                if join_type == 'split-or' and len(inputs) != 1:
+                    raise MetaflowDataMissing("Join *%s* expected %d "
+                                              "inputs but only %d inputs "
+                                              "were found"
+                                              % (step_name,
+                                                 1,
+                                                 len(inputs)))  
+                if join_type not in ['foreach', 'split-or'] and\
                    len(inputs) != len(node.in_funcs):
                     raise MetaflowDataMissing("Join *%s* expected %d "
                                               "inputs but only %d inputs "

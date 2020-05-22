@@ -297,6 +297,11 @@ class NativeRuntime(object):
             required_tasks = [self._finished.get((task.step, s))
                               for s in siblings(foreach_stack)]
             join_type = 'foreach'
+        elif matching_split.type == 'split-or':
+            # next step is a spit-or
+            # required tasks is the last step of the selected branch
+            required_tasks = [self._finished.get((step_name, foreach_stack))]
+            join_type = 'linear'
         else:
             # next step is a split-and
             # required tasks are all branches joined by the next step
@@ -350,9 +355,11 @@ class NativeRuntime(object):
             if trans:
                 next_steps = trans[0]
                 foreach = trans[1]
+                condition = trans[2]
             else:
                 next_steps = []
                 foreach = None
+                condition = None
             expected = self._graph[task.step].out_funcs
             if next_steps != expected:
                 msg = 'Based on static analysis of the code, step *{step}* '\
@@ -373,6 +380,16 @@ class NativeRuntime(object):
             elif foreach:
                 # Next step is a foreach child
                 self._queue_task_foreach(task, next_steps)
+            elif condition:
+                resolved_condition = task.results.get(condition)
+                if resolved_condition is None:
+                    msg = 'Conditional branch requires condition to be the name of an attribute of the step'
+                    raise MetaflowInternalError(msg)
+                if resolved_condition:
+                    step = next_steps[0]
+                else:
+                    step = next_steps[1]
+                self._queue_push(step, {'input_paths': [task.path]})
             else:
                 # Next steps are normal linear steps
                 for step in next_steps:
